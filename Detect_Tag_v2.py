@@ -17,10 +17,14 @@ def circshift(matrix, shiftnum1, shiftnum2):
 class Detect_Tag:
     def __init__(self, img) -> None:
         self.img = img
-
         kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]], np.float32)
         self.img = cv2.filter2D(self.img, -1, kernel=kernel)
-
+    def boxarea(self, box):
+        x1 = box[0][0]
+        x2 = box[3][0]
+        y1 = box[0][1]
+        y2 = box[3][1]
+        return (x2 - x1) * (y2 - y1)
     def inside(self, rectt, x, y):
         """判断点x,y是否在矩形rectt中心3/4区域内"""
         x1 = rectt[0][0]
@@ -112,7 +116,7 @@ class Detect_Tag:
             # 计算轮廓的近似多边形  
             approx = cv2.approxPolyDP(contour, .03 * cv2.arcLength(contour, True), True)
             # 如果approx的点数为4说明这个多边形为四边形  为什么面积判断是1000而不是采用yolo识别框面积的50%
-            if rect_area > 1000 and len(approx) == 4:
+            if rect_area > self.boxarea(yolobox)*0.3 and len(approx) == 4:
                 # 计算这个轮廓的矩
                 # m00为面积
                 M = cv2.moments(contour)
@@ -124,7 +128,7 @@ class Detect_Tag:
                     # 测试发现在将hierarchy[0][ic][0] > -1改为hierarchy[0][ic][0] == -1时可以将多个框轮廓识别出来
                     # 认为应该将判断条件改为hierarchy[0][ic][0] == -1 and hierarchy[0][ic][2] == -1 
                     # 即选中每层内框的最后一个轮廓，判断是否是红色的内框使用面积是否大于yolo识别框面积的50%
-                    if hierarchy[0][ic][0] > -1 and hierarchy[0][ic][2] == -1:
+                    if hierarchy[0][ic][0] == -1 and hierarchy[0][ic][2] == -1:
                         final_contour = contour
                         cv2.drawContours(self.img, final_contour, -1, (50, 255, 255), 3)
                         cv2.namedWindow("contours",0)
