@@ -1,0 +1,7 @@
+train: D:\PythonProjs\TAG\dataset\TAG\IMX\train\images
+val: D:\PythonProjs\TAG\dataset\TAG\IMX\val\images
+
+# Classes
+nc: 1
+names:
+  0: outline
