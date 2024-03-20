@@ -1,0 +1,8 @@
+train: .\dataset\2024tag\train\images
+val: .\dataset\2024tag\val\images
+
+# Classes
+nc: 2
+names:
+  0: outline
+  1: inline

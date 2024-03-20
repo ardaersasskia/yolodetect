@@ -1,4 +1,4 @@
-from threading import Thread
+from threading import Thread,Event
 import queue
 import cv2
 import numpy as np
@@ -101,11 +101,11 @@ class Detect_Tag:
                         final_contour = contour
 
         if len(final_contour) < 1:
-            print("no contour detected!")
+            # print("no contour detected!")
             rect_r = cv2.minAreaRect(yolobox)
             yolobox = cv2.boxPoints(rect_r)
             return self.gettvec(yolobox, 3, cameraMatrix, distCoeffs)
-        print("contour detected!")
+        # print("contour detected!")
         rect = cv2.minAreaRect(final_contour)
         self.box_1 = cv2.boxPoints(rect)
 
@@ -114,11 +114,12 @@ class Detect_Tag:
         elif retVal == 1:
             return self.getRvec(self.box_1, 2.3, cameraMatrix, distCoeffs)
 class FileRead(Thread):
-    def __init__(self, path,yolo_img_queue,opencv_img_queue):
+    def __init__(self, path,yolo_img_queue,opencv_img_queue,event):
         Thread.__init__(self)
         self.path = path
         self.yolo_img_queue = yolo_img_queue
-        self.opencv_img_queue = opencv_img_queue      
+        self.opencv_img_queue = opencv_img_queue    
+        self.event = event
 
     def run(self):
         files = os.listdir(self.path)
@@ -127,36 +128,88 @@ class FileRead(Thread):
             img = cv2.imread(img_path)       
             self.yolo_img_queue.put(img)
             self.opencv_img_queue.put(img)
+            start_event.set()
+            print('file read process')
+            
         self.yolo_img_queue.put(None)  # 发送None作为YOLO线程的停止信号
         self.opencv_img_queue.put(None)  # 发送None作为OpenCV线程的停止信号
+class CameraRead(Thread):
+    def __init__(self,yolo_img_queue,opencv_img_queue,event,runflag,test_path="dataset/TAG/display"):
+        Thread.__init__(self)
+        self.yolo_img_queue = yolo_img_queue
+        self.opencv_img_queue = opencv_img_queue    
+        self.event = event
+        self.test_path = test_path
+        self.runflag = runflag
 
+    def run(self):
+        cap=cv2.VideoCapture(1)
+        ret,frame=cap.read()
+        while runflag:
+            cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            ret,frame=cap.read()  
+            if self.yolo_img_queue.not_full and self.opencv_img_queue.not_full:
+                self.yolo_img_queue.put(frame)
+                self.opencv_img_queue.put(frame)
+            else:
+                continue
+            start_event.set()
+            #print('camera read process')
+
+        self.yolo_img_queue.put(None)  # 发送None作为YOLO线程的停止信号
+        self.opencv_img_queue.put(None)  # 发送None作为OpenCV线程的停止信号
 class YOLODetectThread(Thread):
-    def __init__(self, img_queue, result_queue, model):
+    def __init__(self, img_queue, result_queue, model,runevent,yolo_ready_event,opencv_ready_event,runflag):
         Thread.__init__(self)
         self.img_queue = img_queue
         self.result_queue = result_queue
         self.model = model
+        self.runevent=runevent
+        self.yolo_ready_event=yolo_ready_event
+        self.opencv_ready_event=opencv_ready_event
+        self.runflag=runflag
         
 
     def run(self):
-        while True:
+        while runflag:
+            self.runevent.wait()
+           #  print('yolo start')
+            self.yolo_ready_event.clear()
+            t1=time.time()
             img = self.img_queue.get()
             if img is None:
                 self.result_queue.put(None)
                 break
-            results = self.model(img)
-            self.result_queue.put(results.xyxy[0].to('cpu').numpy())
+            
+            results = self.model(img[:,:,::-1])
+            t2=time.time()
+            print('yolo time:',t2-t1)
+            # print(results.pandas().xyxy[0]['class'])
+            self.result_queue.put((img,results.xyxy[0].to('cpu').numpy()))
+            self.yolo_ready_event.set()
+            
+            if self.opencv_ready_event.is_set():
+                self.runevent.set()
+            else:
+                self.runevent.clear()
+            # print('yolo process')
 
 class OpenCVProcessThread(Thread):
-    def __init__(self, img_queue, result_queue, cameraMatrix, distCoeffs):
+    def __init__(self, img_queue, result_queue, cameraMatrix, distCoeffs,runevent,yolo_ready_event,opencv_ready_event,runflag):
         Thread.__init__(self)
         self.img_queue = img_queue
         self.result_queue = result_queue
         self.cameraMatrix = cameraMatrix
         self.distCoeffs = distCoeffs
-
+        self.runevent=runevent
+        self.yolo_ready_event=yolo_ready_event
+        self.opencv_ready_event=opencv_ready_event
+        self.runflag=runflag
     def run(self):
-        while True:
+        while runflag:
+            self.runevent.wait()
+            # print('opencv start')
+            self.opencv_ready_event.clear()
             img = self.img_queue.get()
             if img is None:
                 self.result_queue.put(None)
@@ -171,6 +224,12 @@ class OpenCVProcessThread(Thread):
             contours, hierarchy = cv2.findContours(binary, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
         # 将结果放入队列
             self.result_queue.put((contours, hierarchy))
+            self.opencv_ready_event.set()
+            if self.yolo_ready_event.is_set():
+                self.runevent.set()
+            else:
+                self.runevent.clear()
+           #  print('opencv process')
 
 
 if __name__ == '__main__':
@@ -192,63 +251,93 @@ if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # 加载模型，路径需要修改
-    model = torch.hub.load('./', 'custom', './pretrained/balanced400.pt',
-                           source='local', force_reload=False)
+    # model = torch.hub.load('./', 'custom', './pretrained/yolov5n.pt',source='local', force_reload=False)
+    model = torch.hub.load('./', 'custom', 'yolov5n_20240320.pt',source='local', force_reload=False)
     model = model.to(device)
-
-    yolo_img_queue = queue.Queue()
-    opencv_img_queue = queue.Queue()
+   
+    yolo_img_queue = queue.Queue(maxsize=2)
+    opencv_img_queue = queue.Queue(maxsize=2)
     yolo_result_queue = queue.Queue()
     opencv_result_queue = queue.Queue()
-
-
+    runevent=Event()
+    runevent.set()
+    start_event=Event()
+    start_event.clear()
+    yolo_ready_event=Event()
+    opencv_ready_event=Event()
+    yolo_ready_event.set()
+    opencv_ready_event.set()
     path = "dataset/TAG/display"
-    yolo_thread = YOLODetectThread(yolo_img_queue, yolo_result_queue, model)
-    opencv_thread = OpenCVProcessThread(opencv_img_queue, opencv_result_queue, cameraMatrix, distCoeffs)
-    file_thread = FileRead(path,yolo_img_queue,opencv_img_queue)
-    file_thread.start()
-    time.sleep(1)
+    # testimg=cv2.imread(os.path.join(path,"23.jpg"))
+    # test_result=model(os.path.join(path,"23.jpg"))
+    # print(test_result.pandas().xyxy[0]['class'])
+    runflag=True
+    yolo_thread = YOLODetectThread(yolo_img_queue, yolo_result_queue, model,runevent,yolo_ready_event,opencv_ready_event,runflag)
+    opencv_thread = OpenCVProcessThread(opencv_img_queue, opencv_result_queue, cameraMatrix, distCoeffs,runevent,yolo_ready_event,opencv_ready_event,runflag)
+    # file_thread = FileRead(path,yolo_img_queue,opencv_img_queue,start_event)
+    # file_thread.start()
+    camera_thread = CameraRead(yolo_img_queue, opencv_img_queue, start_event,runflag)
+    camera_thread.start()
+    start_event.wait()
     yolo_thread.start()
-    time.sleep(1)
     opencv_thread.start()
-    time.sleep(1)
-    while True:
+    
+    while runflag:
         # 等待两个线程的结果
         t1=time.time()
         yolo_result = yolo_result_queue.get()
-        opencv_result = opencv_result_queue.get()
-        
-        if yolo_result is not None and opencv_result is not None:
-            detections_yolo = yolo_result
-            (contours_opencv, hierarchy_opencv) = opencv_result
+        tyolo=time.time()
+        if yolo_result is not None: 
+            img,detections_yolo = yolo_result
+            
             # 过滤模型，获取classItem=0的识别结果
             newList = []
             for detection in detections_yolo:
                 xmin, ymin, xmax, ymax, conf, classItem = detection[:6]
-                if int(classItem) == 0 and conf > 0.3:
+                if conf > 0.3:
                     newList.append([int(xmin), int(ymin), int(xmax), int(ymax), conf])
+                
 
             if len(newList) > 0:
-                listItem = newList[0]
-                rect = np.array([[listItem[0], listItem[1]], [listItem[0], listItem[3]],
+                for listItem in newList:
+                    cv2.rectangle(img, (listItem[0], listItem[1]), (listItem[2], listItem[3]), (50, 255, 50), 3,
+                          lineType=cv2.LINE_AA)
+                
+                    rect = np.array([[listItem[0], listItem[1]], [listItem[0], listItem[3]],
                                  [listItem[2], listItem[1]], [listItem[2], listItem[3]]], dtype=np.int32)
                 a = Detect_Tag()
+                # img = cv2.resize(img, (1272, 972))
+                cv2.imshow("img", img)
+                k=cv2.waitKey(1)
+                if k == ord('q'):
+                    runflag = False
+                    break
 
+                opencv_result = opencv_result_queue.get()
+                if opencv_result is not None:
                 # Use the contours and hierarchy to finalize the location
-                result_location = a.get_location(contours_opencv, hierarchy_opencv, rect, cameraMatrix, distCoeffs)
-                #print(result_location)
-                #cv2.waitKey(0)
-                # cv2.destroyAllWindows()
+                    (contours_opencv, hierarchy_opencv) = opencv_result
+                    result_location = a.get_location(contours_opencv, hierarchy_opencv, rect, cameraMatrix, distCoeffs)
+                    #print(result_location)
+                    #cv2.waitKey(0)
+                    # cv2.destroyAllWindows() 
             else:
                 print("No detection")
+                print(detections_yolo)
+                # img = cv2.resize(img, (1272, 972))
+                cv2.imshow("img", img)
+                k=cv2.waitKey(1)
+                if k == ord('q'):
+                    runflag = False
+                    break
+            # cv2.destroyAllWindows()
         elif yolo_result == None and opencv_result == None:
             break
-        t2 = time.time()
-        print("time:", t2 - t1)
+        t3 = time.time()
+        print('load_yolo_time: ',tyolo-t1)
+        print("total_time:", t3 - t1)
 
-    # 等待所有进程完成
-    yolo_thread.join()
-    opencv_thread.join()
+    cv2.destroyAllWindows()
     
 
 
