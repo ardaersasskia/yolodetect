@@ -1,8 +1,0 @@
-img1和img2文件夹中的data.txt文件记录了每张图片识别到的box四个顶点坐标以及solvePnP计算得到的距离，若某条数据前标*号，则表示该数据的box较为准确，img2中图片识别误差均较大，img1中未标*的图片误差也相对较小
-
-每个图片对应的实际距离参考 数据记录.xlsx，包含czh和hty的数据记录
-
-Detect_Tag_yolo.py是将cal_Distance函数的输入改为神经网络识别得到的四个顶点后的代码，可以检查一下修改是否有问题，主要改动了line107,130以及main
-
-balanced200.pt是用白平衡后的数据集在yolov5s.pt基础上训练200epoch后的权重，供参考
-

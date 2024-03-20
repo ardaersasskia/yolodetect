@@ -1,7 +1,0 @@
-train: D:\PythonProjs\TAG\dataset\TAG\train\WhiteBalancedImages\images
-val: D:\PythonProjs\TAG\dataset\TAG\val\WhiteBalancedImages\images
-
-# Classes
-nc: 1
-names:
-  0: outline

@@ -1,9 +1,0 @@
-conda activate yolov5
-
-cd D:\PythonProjs\TAG
-
-python train.py --batch-size 1 --epochs 100 --data .\dataset\TAG\data.yaml --weights .\pretrained\yolov5s.pt
-
-python train.py --batch-size 1 --epochs 100 --data .\dataset\TAG\dataBalanced.yaml --weights .\pretrained\balanced200.pt
-
-python train.py --batch-size 1 --epochs 100 --data .\dataset\TAG\IMX.yaml --weights .\pretrained\IMX400.pt

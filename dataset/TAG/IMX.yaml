@@ -1,7 +1,0 @@
-train: .\dataset\TAG\IMX\train\images
-val: .\dataset\TAG\IMX\val\images
-
-# Classes
-nc: 1
-names:
-  0: outline
