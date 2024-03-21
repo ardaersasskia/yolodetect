@@ -143,14 +143,20 @@ class CameraRead(Thread):
         self.runflag = runflag
 
     def run(self):
-        cap=cv2.VideoCapture(1)
+        cap=cv2.VideoCapture(index=1,apiPreference=cv2.CAP_V4L2)
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH,800)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT,600)
+        cap.set(cv2.CAP_PROP_FPS,60)
         ret,frame=cap.read()
         while runflag:
             cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            t1=time.time()
             ret,frame=cap.read()  
             if self.yolo_img_queue.not_full and self.opencv_img_queue.not_full:
                 self.yolo_img_queue.put(frame)
                 self.opencv_img_queue.put(frame)
+                t2=time.time()
+                print('camera read time:',t2-t1)
             else:
                 continue
             start_event.set()
@@ -175,19 +181,20 @@ class YOLODetectThread(Thread):
             self.runevent.wait()
            #  print('yolo start')
             self.yolo_ready_event.clear()
-            t1=time.time()
+            
             img = self.img_queue.get()
+            t1=time.time()
             if img is None:
                 self.result_queue.put(None)
                 break
             
             results = self.model(img[:,:,::-1])
-            t2=time.time()
-            print('yolo time:',t2-t1)
+            
             # print(results.pandas().xyxy[0]['class'])
             self.result_queue.put((img,results.xyxy[0].to('cpu').numpy()))
             self.yolo_ready_event.set()
-            
+            t2=time.time()
+            print('yolo time:',t2-t1)
             if self.opencv_ready_event.is_set():
                 self.runevent.set()
             else:
@@ -211,6 +218,7 @@ class OpenCVProcessThread(Thread):
             # print('opencv start')
             self.opencv_ready_event.clear()
             img = self.img_queue.get()
+            t1=time.time()
             if img is None:
                 self.result_queue.put(None)
                 break
@@ -225,6 +233,8 @@ class OpenCVProcessThread(Thread):
         # 将结果放入队列
             self.result_queue.put((contours, hierarchy))
             self.opencv_ready_event.set()
+            t2=time.time()
+            print('opencv time:',t2-t1)
             if self.yolo_ready_event.is_set():
                 self.runevent.set()
             else:
@@ -253,6 +263,7 @@ if __name__ == '__main__':
     # 加载模型，路径需要修改
     # model = torch.hub.load('./', 'custom', './pretrained/yolov5n.pt',source='local', force_reload=False)
     model = torch.hub.load('./', 'custom', 'yolov5n_20240320_2.pt',source='local', force_reload=False)
+    #model = torch.hub.load('./', 'custom', './pretrained/balanced400.pt',source='local', force_reload=False)
     model = model.to(device)
    
     yolo_img_queue = queue.Queue(maxsize=2)
@@ -287,6 +298,7 @@ if __name__ == '__main__':
         t1=time.time()
         yolo_result = yolo_result_queue.get()
         tyolo=time.time()
+        opencv_result = opencv_result_queue.get()
         if yolo_result is not None: 
             img,detections_yolo = yolo_result
             
@@ -294,7 +306,7 @@ if __name__ == '__main__':
             newList = []
             for detection in detections_yolo:
                 xmin, ymin, xmax, ymax, conf, classItem = detection[:6]
-                if conf > 0.45:
+                if conf > 0.35:
                     newList.append([int(xmin), int(ymin), int(xmax), int(ymax), conf])
                 
 
@@ -313,7 +325,7 @@ if __name__ == '__main__':
                     runflag = False
                     break
 
-                opencv_result = opencv_result_queue.get()
+                
                 if opencv_result is not None:
                 # Use the contours and hierarchy to finalize the location
                     (contours_opencv, hierarchy_opencv) = opencv_result

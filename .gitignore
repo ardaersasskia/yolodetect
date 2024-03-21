@@ -1,2 +1,3 @@
 runs/train
 dataset
+__pycache__
