@@ -4,7 +4,11 @@ import cv2
 import numpy as np
 import torch
 import os,time
+import socket
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
+# 绑定端口
+sock.bind(("127.0.0.1", 12345))
 # ... (其余import和functions，保持不变)
 def circshift(matrix, shiftnum1, shiftnum2):
     h, w = matrix.shape
@@ -143,15 +147,12 @@ class CameraRead(Thread):
         self.runflag = runflag
 
     def run(self):
-        cap=cv2.VideoCapture(index=1,apiPreference=cv2.CAP_V4L2)
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH,800)
-        cap.set(cv2.CAP_PROP_FRAME_HEIGHT,600)
-        cap.set(cv2.CAP_PROP_FPS,60)
-        ret,frame=cap.read()
+        
         while runflag:
-            cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-            t1=time.time()
-            ret,frame=cap.read()  
+            t1 = time.time()
+            jpeg_data, addr = sock.recvfrom(65535)
+            frame = cv2.imdecode(np.frombuffer(jpeg_data, dtype=np.uint8), cv2.IMREAD_COLOR)
+
             if self.yolo_img_queue.not_full and self.opencv_img_queue.not_full:
                 self.yolo_img_queue.put(frame)
                 self.opencv_img_queue.put(frame)
