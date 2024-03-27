@@ -262,8 +262,8 @@ if __name__ == '__main__':
 
     # 加载模型，路径需要修改
     # model = torch.hub.load('./', 'custom', './pretrained/yolov5n.pt',source='local', force_reload=False)
-    #model = torch.hub.load('./', 'custom', 'yolov5n_20240320_2.pt',source='local', force_reload=False)
-    model = torch.hub.load('./', 'custom', './pretrained/balanced400.pt',source='local', force_reload=False)
+    model = torch.hub.load('./', 'custom', 'yolov5n_20240320_2.pt',source='local', force_reload=False)
+    #model = torch.hub.load('./', 'custom', './pretrained/balanced400.pt',source='local', force_reload=False)
     model = model.to(device)
    
     yolo_img_queue = queue.Queue(maxsize=2)
