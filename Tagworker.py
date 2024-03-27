@@ -21,7 +21,6 @@ class Worker():
     @timer
     def camera_cap(self):
         "摄像头捕捉图像"
-        self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
         _, img = self.cap.read()
         return img
     @timer

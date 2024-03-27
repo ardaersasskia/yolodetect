@@ -16,7 +16,7 @@ class Solve_position:
                             [0, 0, 1]], dtype=np.double)
         self.distCoeffs = np.array([[-1.28826679e-01, 4.12884075e-01, 2.12200329e-03, 7.82174557e-04, -9.14304350e-01]],
                         dtype=np.double)
-    def circshift(matrix, shiftnum1, shiftnum2):
+    def circshift(self,matrix, shiftnum1, shiftnum2):
         h, w = matrix.shape
         matrix = np.vstack((matrix[(h - shiftnum1):, :], matrix[:(h - shiftnum1), :]))
         matrix = np.hstack((matrix[:, (w - shiftnum2):], matrix[:, :(w - shiftnum2)]))
@@ -54,6 +54,8 @@ class Solve_position:
         minindex = np.argmin(arr_aa)
 
         # 顶点坐标旋转（右下 左下 左上 右上）
+        print(box)
+        print(minindex)
         box_2 = self.circshift(box, 2 - minindex, 0)
         #print('外接矩形box:', box_2)
         box_2 = np.array(box_2, dtype=np.double)
