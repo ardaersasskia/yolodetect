@@ -21,3 +21,12 @@
 ![1711557682423](image/camera_latency/1711557682423.png)
 
 根据官方说明，下一步可以尝试使用[argus](https://docs.nvidia.com/jetson/l4t-multimedia/group__LibargusAPI.html)？
+
+> Libargus is designed to address a number of fundamental requirements:
+>
+> * Support for a wide variety of use cases (traditional photography, computational photography, video, computer vision, and other application areas.) To this end, libargus is a frame-based API; every capture is triggered by an explicit request that specifies exactly how the capture is to be performed.
+> * Support for multiple platforms, including L4T and Android.
+> * Efficient and simple integration into applications and larger frameworks. In support of this, libargus delivers images with EGLStreams, which are directly supported by other system components such as OpenGL and Cuda, and which ***require no buffer copies during delivery to the consumer***.
+> * Expansive metadata along with each output image.
+> * Support for multiple sensors, including both separate control over independent sensors and access to synchronized multi-sensor configurations. (The latter are unsupported in the current release. When support is added, it will be available on only some NVIDIA platforms.)
+> * Version stability and extensibility, which are provided by unchanging virtual interfaces and the ability for vendors to add specialized extension interfaces.
