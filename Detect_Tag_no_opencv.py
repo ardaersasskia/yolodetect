@@ -5,7 +5,7 @@ import torch
 from Tagworker import Worker
 # 使用Gstreamer调用csi摄像头的参数,可按需更改sensor-id,width,height,framerate等
 # drop = true 为溢出缓存时丢弃而不是等待，可有效降低摄像头延迟
-video_device='nvarguscamerasrc sensor-id=0 ! video/x-raw(memory:NVMM), width=1280, height=720, format=NV12, framerate=(fraction)60/1 ! nvvidconv ! video/x-raw, format=(string)BGRx ! videoconvert ! appsink drop=true'
+video_device='nvarguscamerasrc maxperf=true sensor-id=0 ! video/x-raw(memory:NVMM), width=1280, height=720, format=NV12, framerate=(fraction)60/1 ! nvvidconv ! video/x-raw, format=(string)BGRx ! videoconvert ! appsink drop=true'
 
 # 在jetson xavier nx上使用以下参数
 in_jetson_xavier_nx=True
