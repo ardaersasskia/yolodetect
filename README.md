@@ -30,3 +30,5 @@
 > * Expansive metadata along with each output image.
 > * Support for multiple sensors, including both separate control over independent sensors and access to synchronized multi-sensor configurations. (The latter are unsupported in the current release. When support is added, it will be available on only some NVIDIA platforms.)
 > * Version stability and extensibility, which are provided by unchanging virtual interfaces and the ability for vendors to add specialized extension interfaces.
+
+坏消息 nvarguscamerasrc 已经时使用了argus，看来要试试通过v4l2来绕过这个板载ISP的4帧缓存![1711563548461](image/README/1711563548461.png)
