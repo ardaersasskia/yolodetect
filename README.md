@@ -34,3 +34,7 @@
 坏消息 nvarguscamerasrc 已经时使用了argus，看来要试试通过v4l2来绕过这个板载ISP的4帧缓存，或者使用120fps的摄像机来获得更低的延时
 
 ![1711563548461](image/README/1711563548461.png)
+
+又一个坏消息，jetson自带的gstreamer版本过低，v4l2src不支持10bit的bayer格式，需要自己编译一个重新安装，参照[这个](https://docs.nvidia.com/jetson/archives/r35.3.1/DeveloperGuide/text/SD/Multimedia/AcceleratedGstreamer.html#gstreamer-build-instructions)
+
+nvidia的官方教程是1.16.2版本的，[1.24.1版本](https://github.com/GStreamer/gstreamer)已经开始用meson构建了
