@@ -9,8 +9,9 @@
 * [Detect_Tag_no_opencv.py](Detect_Tag_no_opencv.py)(程序主体)
 * [Tagsolve.py](Tagsolve.py)(负责从识别框解算位置姿态)
 * [Tagworker.py](Tagworker.py)(负责从读取图片到输出识别框)
+* [readv4l2.py](readv4l2.py)(v4l2直接读取测试)
 
-# Camera Latency
+## Camera Latency
 
 使用csi摄像头时延时依然很大，检测Gstreamer pipe耗时仅在7-12ms左右
 
@@ -38,3 +39,25 @@
 又一个坏消息，jetson自带的gstreamer版本过低，v4l2src不支持10bit的bayer格式，需要自己编译一个重新安装，参照[这个](https://docs.nvidia.com/jetson/archives/r35.3.1/DeveloperGuide/text/SD/Multimedia/AcceleratedGstreamer.html#gstreamer-build-instructions)
 
 nvidia的官方教程是1.16.2版本的，[1.24.1版本](https://github.com/GStreamer/gstreamer)已经开始用meson构建了
+
+下载最新版本的gstreamer及其gst-plugins-base-1.24.1、gst-plugins-good-1.24.1并安装后，v4l2src支持rggb10le
+
+首先 v4l2-ctrl --bypass_mode=0 绕过板载ISP
+
+但是读取到的都是全白画面，不知道为什么
+
+使用v4l2py库，用python读取摄像头,发现设备初始化出错,通过报错信息发现是该库在进行[querymenu](https://www.kernel.org/doc/html/v4.10/media/uapi/v4l/vidioc-queryctrl.html#v4l2-querymenu)操作时没有对IntegerMenu类型的控制项正确处理，以及在G_CTRL操作时没有对[EXT_CTRLS](https://www.kernel.org/doc/html/v4.10/media/uapi/v4l/vidioc-g-ext-ctrls.html)进行正确的处理，需要修改源码
+
+### device.py
+
+![1711802860422](image/README/1711802860422.png)
+
+![1711802885629](image/README/1711802885629.png)
+
+![1711802892326](image/README/1711802892326.png)
+
+### raw.py
+
+![1711802897261](image/README/1711802897261.png)
+
+![1711802900784](image/README/1711802900784.png)
