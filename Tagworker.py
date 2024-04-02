@@ -12,21 +12,34 @@ def timer(func):
         return result
     return wrapper
 class Worker():
-    def __init__(self,cap,model) -> None:
+    def __init__(self,cap,model,using_csi,using_v4l2,imgHeight,imgWidth) -> None:
         self.cap=cap
         self.model=model
         self.img=None
         self.detections_yolo=None
+        self.using_csi=using_csi
+        self.using_v4l2=using_v4l2
+        self.imgWidth=imgWidth
+        self.imgHeight=imgHeight
     
     @timer
     def camera_cap(self):
         "摄像头捕捉图像"
-        _, img = self.cap.read()
+        if self.using_csi and self.using_v4l2:
+            _,frame=self.cap.__next__()
+            data=frame.data
+            npdata=np.frombuffer(data,dtype=np.uint16)
+            bayerIMG = npdata.reshape(self.imgHeight, self.imgWidth, 1)/64
+            grayIMG = np.zeros([self.imgHeight, self.imgWidth, 3], dtype='uint16')
+            grayIMG[:,:,0]=grayIMG[:,:,1]=grayIMG[:,:,2]=bayerIMG[:,:,0]
+            img=np.uint8(grayIMG)
+        else:
+            _, img = self.cap.read()
         return img
     @timer
     def yolo_detect(self):
         "yolo模型计算,返回运算结果"
-        results = self.model(self.img[:,:,::-1])
+        results = self.model(self.img)
         return results.xyxy[0].to('cpu').numpy()
     def draw_rect(self):
         "绘制yolo检测框,返回框坐标"
