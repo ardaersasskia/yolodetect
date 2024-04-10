@@ -46,7 +46,7 @@ class Worker():
         detect_list = []
         for detection in self.detections_yolo:
             xmin, ymin, xmax, ymax, conf, classItem = detection[:6]
-            if int(classItem) == 0 and conf > 0.3:
+            if conf > 0.3:
                 detect_list.append([int(xmin), int(ymin), int(xmax), int(ymax), conf])
 
         if len(detect_list) > 0:

@@ -6,7 +6,7 @@ from Tagworker import Worker
 
 
 # 在jetson xavier nx上使用以下参数
-in_jetson_xavier_nx=True
+in_jetson_xavier_nx=False
 # 使用csi摄像头时，使用以下参数
 using_csi = True
 using_v4l2=False
@@ -18,7 +18,7 @@ if __name__ == '__main__':
     # 设备
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     # 加载模型，路径需要修改
-    model = torch.hub.load('./', 'custom', './yolov5n_20240320_2.pt',
+    model = torch.hub.load('./', 'custom', './pretrained/20240402.pt',
                            source='local', force_reload=False)
     # 初始化摄像头
     if in_jetson_xavier_nx:
