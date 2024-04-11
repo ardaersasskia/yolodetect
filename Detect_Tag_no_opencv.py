@@ -2,7 +2,7 @@ from multiprocessing import Process, Queue, Event, Value
 import cv2
 import torch
 from v4l2py.device import Device,BufferType,Memory
-from Tagworker import Worker
+from Tagwork.Tagworker import Worker
 
 
 # 在jetson xavier nx上使用以下参数
@@ -59,7 +59,14 @@ if __name__ == '__main__':
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, camera_height)
         ret,frame=cap.read()
     # 初始化worker
-    myworker=Worker(cap,model,using_csi,using_v4l2,camera_height,camera_width)
+    myworker=Worker(cap=cap,
+                    model=model,
+                    using_csi=using_csi,
+                    using_v4l2=using_v4l2,
+                    imgHeight=camera_height,
+                    imgWidth=camera_width,
+                    testflag=False,
+                    testdirectory='./usb_picture')
 
     while True:
         # 进行一帧运算
@@ -69,7 +76,7 @@ if __name__ == '__main__':
         if result is not None:
             #cv2.waitKey(0)
             print(result)
-        k=cv2.waitKey(1)
+        k=cv2.waitKey(0)
         if k == 27:
             cv2.destroyAllWindows()
             break
