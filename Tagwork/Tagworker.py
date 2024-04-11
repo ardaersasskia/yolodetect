@@ -93,10 +93,11 @@ class Worker():
     
             return rect,FirstItem[5]
         else:
-            return None
+            return None,None
     def find_contour(self,rect,isoutside):
         "opencv寻找轮廓"
         outer=1.05
+        centerrange=0.2
         xmin=rect[0][0]
         ymin=rect[0][1]
         xmax=rect[2][0]
@@ -108,18 +109,33 @@ class Worker():
         ymin=center[1]-int(height*outer/2)
         xmax=center[0]+int(width*outer/2)
         ymax=center[1]+int(height*outer/2)
-        
+        if xmin<0:
+            xmin=0
+        if ymin<0:
+            ymin=0
+        if xmax>self.imgWidth:
+            xmax=self.imgWidth
+        if ymax>self.imgHeight:
+            ymax=self.imgHeight
         img_mini=self.img[ymin:ymax,xmin:xmax]
-        cv2.imshow('mini',img_mini)
+        
         # # 进行高斯模糊
-        # blured = cv2.GaussianBlur(img_mini, (3, 3), 0)
-        gray = cv2.cvtColor(img_mini, cv2.COLOR_BGR2GRAY)
-        # 二值化
-        _, binary = cv2.threshold(gray, 80, 255, cv2.THRESH_BINARY_INV)
-        cv2.imshow('binary',binary)
+        blured = cv2.GaussianBlur(img_mini, (3, 3), 0)
+        gray = cv2.cvtColor(blured, cv2.COLOR_BGR2GRAY)
+
+        # 自适应二值化
+        blocksize = np.round((xmax - xmin) / 4).astype(int)
+        blocksize = blocksize if blocksize % 2 == 1 else blocksize + 1
+        C = 1
+        binary = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV, blocksize, C)
+        normal_binary=cv2.threshold(gray, 80, 255, cv2.THRESH_BINARY_INV)[1]
+        cv2.imshow('normal_binary',normal_binary)
+        #_, binary = cv2.threshold(gray, 80, 255, cv2.THRESH_BINARY_INV)
+        
         # 查找轮廓
         contours, hierarchy = cv2.findContours(binary, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
         final_counters=[]
+        final_counter=None
         for i,contour in enumerate(contours):
             # hierarchy[0][i][y]
             # i为这组轮廓点的编号
@@ -127,18 +143,24 @@ class Worker():
             # y=1表示同一层次上一个轮廓编号
             # y=2表示它的第一个子轮廓编号
             # y=3表示它的父轮廓编号
-            if len(contour)>100 and hierarchy[0][i][3]==-1:
-                final_counters.append(contour)
+            if len(contour)>50 and hierarchy[0][i][3]==-1:
+                M = cv2.moments(contour)
+                cX = int(M["m10"] / M["m00"])
+                cY = int(M["m01"] / M["m00"])
+                if cX<width*(0.5+centerrange) and cX>width*(0.5-centerrange) and cY<height*(0.5+centerrange) and cY>height*(0.5-centerrange):
+                    # 中心点在轮廓内
+                    final_counters.append(contour)
             if len(final_counters)>=2:
+                final_counter=final_counters[1]
                 break
-        if len(final_counters)==2:
-            final_counter=final_counters[1]
-        else:
+        if len(final_counters)==1:
             final_counter=final_counters[0]
         if final_counter is not None:
             rect = cv2.minAreaRect(final_counter)
             box = cv2.boxPoints(rect)
             box = np.int0(box)
+            cv2.putText(img_mini,f'{len(final_counters)}',box[0],cv2.FONT_HERSHEY_SIMPLEX,1,(0,0,255),2)
+            cv2.drawContours(img_mini,[box], -1, (0, 0, 255), 2)
             for point in box:
                 point[0] += xmin
                 point[1] += ymin
@@ -148,8 +170,10 @@ class Worker():
             # 需要转换为相对于img的坐标
             # final_counter的xim,ymin,xmax,ymax四个点对应图像四角
             #print(f"contours:{len(final_counters)}")
-            #cv2.drawContours(img_mini, final_counter, -1, (0, 0, 255), 2)
-            #cv2.imshow('contours',img_mini)
+            
+            if img_mini.shape[0]>10 and img_mini.shape[1]>10:
+                cv2.imshow('mini',img_mini)
+                cv2.imshow('binary',binary)
             cv2.drawContours(self.img_with_rect, [box], 0, (0, 0, 255), 2)
             #cv2.imshow('img_with_rect',self.img_with_rect)
             return True,box
@@ -165,10 +189,10 @@ class Worker():
             self.img_with_rect=self.img.copy()
             print(f"testposition:{self.testposition}")
         else:
-            self.img=self.img_with_rect=self.camera_cap()
+            self.img=self.camera_cap()
+            self.img_with_rect=self.img.copy()
         self.detections_yolo=self.yolo_detect()
         if self.detections_yolo is not None: 
-            # 过滤模型，获取classItem=0的识别结果
             rect,classItem = self.draw_rect()
             if rect is not None:
                 #print("detection")
@@ -180,6 +204,8 @@ class Worker():
                 
                 contour_ret,rect=self.find_contour(rect,isoutside)
                 solver=Solve_position(rect,isoutside)
-                return solver.get_location(contour_ret,2),cv2.flip(self.img_with_rect,-1)                
+                # 仅在调整h时使用self.h.pop()
+                # return solver.get_location(contour_ret,self.h.pop()),cv2.flip(self.img_with_rect,-1)      
+                return solver.get_location(contour_ret),self.img_with_rect               
         return None,self.img_with_rect
         

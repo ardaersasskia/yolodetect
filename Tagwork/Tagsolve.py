@@ -70,7 +70,7 @@ class Solve_position:
         return tvec_1[2] , -tvec_1[0] , -tvec_1[1] , True
 
     # 处理图片
-    def get_location(self,counter_ret,h_pre):
+    def get_location(self,counter_ret,h_pre=None):
         rect_r = cv2.minAreaRect(self.rect)
         yolobox = cv2.boxPoints(rect_r)
         area=cv2.contourArea(self.rect)/1000
