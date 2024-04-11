@@ -12,7 +12,7 @@ def timer(func):
         return result
     return wrapper
 class Worker():
-    def __init__(self,model,using_csi=False,using_v4l2=True,imgHeight=720,imgWidth=1280,cap=None,testflag=False,testdirectory=None) -> None:
+    def __init__(self,model,using_csi=False,using_v4l2=True,imgHeight=720,imgWidth=1280,cap=None,testflag=False,testdirectory=None,h=[]) -> None:
         self.cap=cap
         self.model=model
         self.testflag=testflag
@@ -29,6 +29,7 @@ class Worker():
         self.imgHeight=imgHeight
         if self.testflag:
             self.file_read(testdirectory)
+            self.h=h
     def file_read(self,directory):
         "从文件夹中读取图片"
         self.images=[]
@@ -48,10 +49,13 @@ class Worker():
         return None
     def file_pop(self):
         "从内存中读取图片"
-        img = self.images.pop()
-        self.imgWidth=img.shape[1]
-        self.imgHeight=img.shape[0]
-        testposition=self.testpositions.pop()
+        if len(self.images)==0:
+            return None,None
+        else:
+            img = self.images.pop()
+            self.imgWidth=img.shape[1]
+            self.imgHeight=img.shape[0]
+            testposition=self.testpositions.pop()
         return img,testposition
     @timer
     def camera_cap(self):
@@ -156,6 +160,8 @@ class Worker():
         "进行一轮工作"
         if self.testflag:
             self.img,self.testposition=self.file_pop()
+            if self.img is None:
+                return None,self.img_with_rect
             self.img_with_rect=self.img.copy()
             print(f"testposition:{self.testposition}")
         else:
@@ -174,6 +180,6 @@ class Worker():
                 
                 contour_ret,rect=self.find_contour(rect,isoutside)
                 solver=Solve_position(rect,isoutside)
-                return solver.get_location(contour_ret),cv2.flip(self.img_with_rect,-1)                
+                return solver.get_location(contour_ret,2),cv2.flip(self.img_with_rect,-1)                
         return None,self.img_with_rect
         

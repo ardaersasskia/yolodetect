@@ -1,10 +1,10 @@
 import cv2
 import numpy as np
-
+import math
 
 class Solve_position:
-    def __init__(self,yolo_rect,isoutside=True) -> None:
-        self.yolobox=yolo_rect
+    def __init__(self,rect,isoutside=True) -> None:
+        self.rect=rect
         self.isoutside=isoutside
         # 畸变系数
         # fx = 2.50453554e+03
@@ -62,7 +62,7 @@ class Solve_position:
         #print(minindex)
         box_2 = self.circshift(box, 2 - minindex, 0)
         #print('外接矩形box:', box_2)
-        box_2 = np.array(box, dtype=np.double)
+        box_2 = np.array(box_2, dtype=np.double)
 
         # retval_1,rvec_1,tvec_1,_ = cv2.solvePnPRansac(objPoints, box_2, cameraMatrix, distCoeffs, False, cv2.SOLVEPNP_P3P)
         _, _, tvec_1 = cv2.solvePnP(objPoints, box_2, cameraMatrix, distCoeffs, False, cv2.SOLVEPNP_P3P)
@@ -70,15 +70,19 @@ class Solve_position:
         return tvec_1[2] , -tvec_1[0] , -tvec_1[1] , True
 
     # 处理图片
-    def get_location(self,counter_ret):
-        
-        rect_r = cv2.minAreaRect(self.yolobox)
+    def get_location(self,counter_ret,h_pre):
+        rect_r = cv2.minAreaRect(self.rect)
         yolobox = cv2.boxPoints(rect_r)
+        area=cv2.contourArea(self.rect)/1000
+        
         if self.isoutside:
             if counter_ret:
-                h=1.95
+                h = 0.0543*math.log(area) + 1.7706
             else:
                 h=2.5
         else:
-            h=0.8
+            h= -2e-07*area*area - 0.0001*area + 0.7962
+
+        with open('log.csv','a') as f:
+            f.write(f'{area},{h},')
         return self.gettvec(yolobox, h, self.cameraMatrix, self.distCoeffs)

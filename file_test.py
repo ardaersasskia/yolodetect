@@ -13,10 +13,13 @@ if __name__ == '__main__':
                     testflag=True,
                     testdirectory='./usb_picture')
     with open('log.csv','w') as f:
-        f.write('true x,compute_x,true y,compute_y,delta_x,delta_y \n')
+        f.write('area,h,true x,compute_x,true y,compute_y,delta_x,delta_y \n')
     while True:
         # 进行一帧运算
         result,img=myworker.workonce()
+        if result is None:
+            cv2.destroyAllWindows()
+            break
         img = cv2.resize(img, (int(myworker.imgWidth/4),int(myworker.imgHeight/4)))
         testp=myworker.testposition
         cv2.imshow("img", img)
