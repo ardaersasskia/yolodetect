@@ -224,12 +224,7 @@ class OpenCVProcessThread(Thread):
                 break
              # 转为灰度图像
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        # 进行高斯模糊
-            blured = cv2.GaussianBlur(gray, (3, 3), 0)
-        # 二值化
-            _, binary = cv2.threshold(blured, 80, 255, cv2.THRESH_BINARY_INV)
-        # 查找轮廓
-            contours, hierarchy = cv2.findContours(binary, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
+        
         # 将结果放入队列
             self.result_queue.put((contours, hierarchy))
             self.opencv_ready_event.set()

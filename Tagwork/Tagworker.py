@@ -1,6 +1,6 @@
 import cv2,os
 import numpy as np
-from Tagsolve import Solve_position
+from .Tagsolve import Solve_position
 
 def timer(func):
     import time
@@ -21,6 +21,7 @@ class Worker():
         self.testposition=None
         self.img=None
         self.images=[]
+        self.img_with_rect=None
         self.detections_yolo=None
         self.using_csi=using_csi
         self.using_v4l2=using_v4l2
@@ -81,22 +82,84 @@ class Worker():
 
         if len(detect_list) > 0:
             FirstItem = detect_list[0]
-            cv2.rectangle(self.img, (FirstItem[0], FirstItem[1]), (FirstItem[2], FirstItem[3]), (50, 255, 50), 3,
+            cv2.rectangle(self.img_with_rect, (FirstItem[0], FirstItem[1]), (FirstItem[2], FirstItem[3]), (50, 255, 50), 3,
                         lineType=cv2.LINE_AA)
-            rect = np.array([[FirstItem[0], FirstItem[1]], [FirstItem[0], FirstItem[3]],
-                                [FirstItem[2], FirstItem[1]], [FirstItem[2], FirstItem[3]]], dtype=np.int32)
+            rect = np.array([[FirstItem[0], FirstItem[1]], [FirstItem[2], FirstItem[1]],
+                                [FirstItem[2], FirstItem[3]], [FirstItem[0], FirstItem[3]]], dtype=np.int32)
     
             return rect,FirstItem[5]
         else:
             return None
+    def find_contour(self,rect,isoutside):
+        "opencv寻找轮廓"
+        outer=1.05
+        xmin=rect[0][0]
+        ymin=rect[0][1]
+        xmax=rect[2][0]
+        ymax=rect[2][1]
+        width=xmax-xmin
+        height=ymax-ymin
+        center=(int((xmin+xmax)/2),int((ymin+ymax)/2))
+        xmin=center[0]-int(width*outer/2)
+        ymin=center[1]-int(height*outer/2)
+        xmax=center[0]+int(width*outer/2)
+        ymax=center[1]+int(height*outer/2)
+        
+        img_mini=self.img[ymin:ymax,xmin:xmax]
+        cv2.imshow('mini',img_mini)
+        # # 进行高斯模糊
+        # blured = cv2.GaussianBlur(img_mini, (3, 3), 0)
+        gray = cv2.cvtColor(img_mini, cv2.COLOR_BGR2GRAY)
+        # 二值化
+        _, binary = cv2.threshold(gray, 80, 255, cv2.THRESH_BINARY_INV)
+        cv2.imshow('binary',binary)
+        # 查找轮廓
+        contours, hierarchy = cv2.findContours(binary, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
+        final_counters=[]
+        for i,contour in enumerate(contours):
+            # hierarchy[0][i][y]
+            # i为这组轮廓点的编号
+            # y=0表示同一层次下一个轮廓编号
+            # y=1表示同一层次上一个轮廓编号
+            # y=2表示它的第一个子轮廓编号
+            # y=3表示它的父轮廓编号
+            if len(contour)>100 and hierarchy[0][i][3]==-1:
+                final_counters.append(contour)
+            if len(final_counters)>=2:
+                break
+        if len(final_counters)==2:
+            final_counter=final_counters[1]
+        else:
+            final_counter=final_counters[0]
+        if final_counter is not None:
+            rect = cv2.minAreaRect(final_counter)
+            box = cv2.boxPoints(rect)
+            box = np.int0(box)
+            for point in box:
+                point[0] += xmin
+                point[1] += ymin
+            #print(box)
+            #cv2.drawContours(img_mini,[box],0,(0,0,255),2)
+            # final_counter的坐标是相对于img_mini的
+            # 需要转换为相对于img的坐标
+            # final_counter的xim,ymin,xmax,ymax四个点对应图像四角
+            #print(f"contours:{len(final_counters)}")
+            #cv2.drawContours(img_mini, final_counter, -1, (0, 0, 255), 2)
+            #cv2.imshow('contours',img_mini)
+            cv2.drawContours(self.img_with_rect, [box], 0, (0, 0, 255), 2)
+            #cv2.imshow('img_with_rect',self.img_with_rect)
+            return True,box
+        else:
+            return False,rect
     @timer
     def workonce(self):
         "进行一轮工作"
         if self.testflag:
             self.img,self.testposition=self.file_pop()
+            self.img_with_rect=self.img.copy()
             print(f"testposition:{self.testposition}")
         else:
-            self.img=self.camera_cap()
+            self.img=self.img_with_rect=self.camera_cap()
         self.detections_yolo=self.yolo_detect()
         if self.detections_yolo is not None: 
             # 过滤模型，获取classItem=0的识别结果
@@ -108,8 +171,9 @@ class Worker():
                     isoutside=True
                 else:
                     isoutside=False
-                solver=Solve_position(rect,isoutside)
                 
-                return solver.get_location(),cv2.flip(self.img,-1)                
-        return None,self.img
+                contour_ret,rect=self.find_contour(rect,isoutside)
+                solver=Solve_position(rect,isoutside)
+                return solver.get_location(contour_ret),cv2.flip(self.img_with_rect,-1)                
+        return None,self.img_with_rect
         

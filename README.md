@@ -7,9 +7,11 @@
 将程序分为以下三个部分：
 
 * [Detect_Tag_no_opencv.py](Detect_Tag_no_opencv.py)(程序主体)
-* [Tagsolve.py](Tagsolve.py)(负责从识别框解算位置姿态)
-* [Tagworker.py](Tagworker.py)(负责从读取图片到输出识别框)
-* [readv4l2.py](readv4l2.py)(v4l2直接读取测试)
+* [file_test.py](file_test.py)(进行精度测试)
+* [Tagwork/Tagsolve.py](Tagwork/Tagsolve.py)(负责从识别框解算位置姿态)
+* [Tagwork/Tagworker.py](Tagwork/Tagworker.py)(负责从读取图片到输出识别框)
+* [cameratest/readv4l2.py](cameratest/readv4l2.py)(v4l2直接读取测试)
+* [cameratest/run_calib_RGB.py](cameratest/run_calib_RGB.py)(棋盘格矫正相机内参)
 
 ## Camera Latency
 
@@ -61,3 +63,7 @@ nvidia的官方教程是1.16.2版本的，[1.24.1版本](https://github.com/GStr
 ![1711802897261](image/README/1711802897261.png)
 
 ![1711802900784](image/README/1711802900784.png)
+
+### 暂时停止对摄像头的研究
+
+直接处理4k图像耗时太长，延时反而大了，暂时放弃

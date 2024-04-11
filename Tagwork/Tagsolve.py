@@ -11,14 +11,14 @@ class Solve_position:
         # fy = 2.50706889e+03
         # cx = 1.23265844e+03
         # cy = 9.45947471e+02
-        fx = 2.258064516e+03
-        fy = 2.258064516e+03
-        cx = 0
-        cy = 0
+        fx = 2.10540759e+03
+        fy = 2.10584118e+03
+        cx = 1.88670808e+03
+        cy = 1.03368485e+03
         self.cameraMatrix=np.array([[fx, 0, cx],
                             [0, fy, cy],
                             [0, 0, 1]], dtype=np.double)
-        self.distCoeffs = np.array([[-1.28826679e-01, 4.12884075e-01, 2.12200329e-03, 7.82174557e-04, -9.14304350e-01]],
+        self.distCoeffs = np.array([[0.07998255 ,-0.11608255 , 0.00055299 ,-0.00232755  ,0.05645519]],
                         dtype=np.double)
     def circshift(self,matrix, shiftnum1, shiftnum2):
         h, w = matrix.shape
@@ -70,12 +70,15 @@ class Solve_position:
         return tvec_1[2] , -tvec_1[0] , -tvec_1[1] , True
 
     # 处理图片
-    def get_location(self):
+    def get_location(self,counter_ret):
         
         rect_r = cv2.minAreaRect(self.yolobox)
         yolobox = cv2.boxPoints(rect_r)
         if self.isoutside:
-            h=2.5
+            if counter_ret:
+                h=1.95
+            else:
+                h=2.5
         else:
             h=0.8
         return self.gettvec(yolobox, h, self.cameraMatrix, self.distCoeffs)

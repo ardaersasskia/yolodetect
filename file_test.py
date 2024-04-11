@@ -1,6 +1,6 @@
 import cv2
 import torch
-from Tagworker import Worker
+from Tagwork.Tagworker import Worker
 
 if __name__ == '__main__':
     # 设备 
@@ -13,19 +13,25 @@ if __name__ == '__main__':
                     testflag=True,
                     testdirectory='./usb_picture')
     with open('log.csv','w') as f:
-        f.write('true x,x,true y,y\n')
-    while True:  
+        f.write('true x,compute_x,true y,compute_y,delta_x,delta_y \n')
+    while True:
         # 进行一帧运算
         result,img=myworker.workonce()
         img = cv2.resize(img, (int(myworker.imgWidth/4),int(myworker.imgHeight/4)))
         testp=myworker.testposition
         cv2.imshow("img", img)
-        if result is not None:
+        if result is not None:         
             #cv2.waitKey(0)
             print(result)
             with open('log.csv','a') as f:
-                f.write(f'{testp["x"]},{result[0][0]},{testp["y"]},{result[1][0]}\n')
-        k=cv2.waitKey(0)
+                true_x=testp["x"]
+                true_y=testp["y"]
+                compute_x=result[0][0]
+                compute_y=result[1][0]
+                delta_x=compute_x-true_x
+                delta_y=compute_y-true_y
+                f.write(f'{true_x},{compute_x},{true_y},{compute_y},{delta_x},{delta_y}\n')
+        k=cv2.waitKey(16)
         if k == 27:
             cv2.destroyAllWindows()
             break
