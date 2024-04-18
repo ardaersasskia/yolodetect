@@ -11,9 +11,9 @@ if __name__ == '__main__':
     # 初始化摄像头
     myworker=Worker(model=model,
                     testflag=True,
-                    testdirectory='./usb_picture')
+                    testdirectory='./dataset/testpic')
     with open('log.csv','w') as f:
-        f.write('area,h,true x,compute_x,true y,compute_y,delta_x,delta_y \n')
+        f.write('area,h,true x,compute_x,true y,compute_y,true z,compute_z,delta_x,delta_y,delta_z \n')
     while True:
         # 进行一帧运算
         result,img=myworker.workonce()
@@ -29,12 +29,15 @@ if __name__ == '__main__':
             with open('log.csv','a') as f:
                 true_x=testp["x"]
                 true_y=testp["y"]
+                true_z=testp["z"]
                 compute_x=result[0][0]
                 compute_y=result[1][0]
+                compute_z=-result[2][0]
                 delta_x=compute_x-true_x
                 delta_y=compute_y-true_y
-                f.write(f'{true_x},{compute_x},{true_y},{compute_y},{delta_x},{delta_y}\n')
-        k=cv2.waitKey(16)
+                delta_z=compute_z-true_z               
+                f.write(f'{true_x},{compute_x},{true_y},{compute_y},{true_z},{compute_z},{delta_x},{delta_y},{delta_z}\n')
+        k=cv2.waitKey(1)
         if k == 27:
             cv2.destroyAllWindows()
             break

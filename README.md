@@ -67,3 +67,16 @@ nvidia的官方教程是1.16.2版本的，[1.24.1版本](https://github.com/GStr
 ### 暂时停止对摄像头的研究
 
 直接处理4k图像耗时太长，延时反而大了，暂时放弃
+
+特征匹配是计算机视觉中的一项基本技术，它旨在找到两个不同视角下图像中相同特征的对应关系。以下是一些常用的特征匹配算法：
+
+1. **SIFT (Scale-Invariant Feature Transform)**: SIFT算法通过寻找图像中的关键点，并提取其位置、尺度、旋转不变性，以及在图像中的位置信息。SIFT特征在图像变换（如缩放、旋转）后仍然保持不变，因此非常适合在不同图像之间进行匹配。
+2. **SURF (Speeded Up Robust Features)**: SURF是SIFT的加速版本，它使用积分图像来加速特征检测和描述过程。SURF同样具有尺度不变性和旋转不变性，并且在大规模图像匹配中表现出色。
+3. **ORB (Oriented FAST and Rotated BRIEF)**: ORB是一种效率高、性能好的特征匹配算法。它结合了FAST角点检测和BRIEF描述子，同时考虑了特征点的方向，这使得它在匹配时更加鲁棒。
+4. **Brisk (Binary Robust Invariant Scalable Keypoints)**: Brisk使用一种新颖的方法来检测和描述关键点，它使用一个可扩展的二进制描述子，具有良好的旋转和尺度不变性。
+5. **AKAZE (Affine-Kernel Accelerated Zoom-invariant Keypoints)**: AKAZE算法结合了局部特征点检测和描述，它使用不同的核函数来检测关键点，并计算多尺度、旋转不变的描述子。
+6. **BRIEF (Binary Reid-Images Feature Extractor)**: BRIEF是一种基于二进制的特征描述子，它通过比较相邻像素之间的灰度差异来生成描述子，这种方法简单且高效。
+7. **FLANN (FLANN Matcher)**: FLANN是一个高效的特征匹配器，它使用局部优化算法来匹配特征点，支持多种特征描述子，如SIFT、SURF、ORB等。
+8. **LUCID (Locally Uniform Cylindrical Intensity Descriptor)**: LUCID描述子基于圆柱面上的均匀强度分布，它对旋转和尺度变化具有不变性。
+9. **ASIFT (Alignment-Sensitive Invariant Feature Transform)**: ASIFT是一种对变换（如旋转和缩放）非常鲁棒的特征匹配算法，它通过将图像转换到极坐标系中来提取特征。
+   这些算法各有优缺点，适用于不同的应用场景。例如，SIFT和SURF在图像变换（如旋转和缩放）时表现出色，但计算成本较高；而ORB和Brisk在保持良好性能的同时，具有更高的效率；FLANN则是一个通用的匹配器，可以与多种描述子配合使用。在实际应用中，通常会根据具体需求和可用资源来选择合适的特征匹配算法。

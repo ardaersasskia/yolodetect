@@ -1,7 +1,7 @@
 import cv2,os
 import numpy as np
 from .Tagsolve import Solve_position
-
+import pandas as pd
 def timer(func):
     import time
     def wrapper(*args, **kwargs):
@@ -38,13 +38,20 @@ class Worker():
                 img_path = os.path.join(directory, filename)
                 img = cv2.imread(img_path)
                 self.images.append(img)
-                base_name=os.path.splitext(filename)[0]
-                # 去除usb_
-                x_y_=base_name.split('_')[1]
-                # 取得x,y
-                x_=float(x_y_.split('y')[0].split('x')[1])
-                y_=float(x_y_.split('y')[1])
-                self.testpositions.append({'x':x_,'y':y_})
+                # base_name=os.path.splitext(filename)[0]
+                # # 去除usb_
+                # x_y_=base_name.split('_')[1]
+                # # 取得x,y
+                # x_=float(x_y_.split('y')[0].split('x')[1])
+                # y_=float(x_y_.split('y')[1])
+                print(f"{filename} loaded")
+            elif filename.endswith('.xlsx'):
+                df=pd.read_excel(os.path.join(directory,filename))
+                x_=df['x+0.8(cm)'].to_numpy()
+                y_=df['y(cm)'].to_numpy()
+                z_=df['z+1.7(cm)'].to_numpy()
+                for i in range(len(x_)):
+                    self.testpositions.append({'x':x_[i],'y':y_[i],'z':z_[i]})
                 print(f"{filename} loaded")
         return None
     def file_pop(self):
@@ -83,6 +90,8 @@ class Worker():
             xmin, ymin, xmax, ymax, conf, classItem = detection[:6]
             if conf > 0.3:
                 detect_list.append([int(xmin), int(ymin), int(xmax), int(ymax), conf,classItem])
+                cv2.rectangle(self.img_with_rect, (int(xmin), int(ymin)), (int(xmax), int(ymax)), (255,0,0), 3,)
+                cv2.putText(self.img_with_rect,f'{classItem}:{conf}',[int(xmin), int(ymin)],cv2.FONT_HERSHEY_SIMPLEX,1,(255,0,0),2)
 
         if len(detect_list) > 0:
             FirstItem = detect_list[0]
@@ -97,7 +106,7 @@ class Worker():
     def find_contour(self,rect,isoutside):
         "opencv寻找轮廓"
         outer=1.05
-        centerrange=0.2
+        centerrange=0.3
         xmin=rect[0][0]
         ymin=rect[0][1]
         xmax=rect[2][0]
@@ -128,8 +137,6 @@ class Worker():
         blocksize = blocksize if blocksize % 2 == 1 else blocksize + 1
         C = 1
         binary = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV, blocksize, C)
-        normal_binary=cv2.threshold(gray, 80, 255, cv2.THRESH_BINARY_INV)[1]
-        cv2.imshow('normal_binary',normal_binary)
         #_, binary = cv2.threshold(gray, 80, 255, cv2.THRESH_BINARY_INV)
         
         # 查找轮廓
@@ -150,35 +157,65 @@ class Worker():
                 if cX<width*(0.5+centerrange) and cX>width*(0.5-centerrange) and cY<height*(0.5+centerrange) and cY>height*(0.5-centerrange):
                     # 中心点在轮廓内
                     final_counters.append(contour)
+                    #cv2.drawContours(img_mini, [contour], 0, (0, 255, 0), 2)
             if len(final_counters)>=2:
+                # 检测到两个轮廓的情况下，选择外轮廓
                 final_counter=final_counters[1]
                 break
         if len(final_counters)==1:
+            # 只有一个轮廓
             final_counter=final_counters[0]
         if final_counter is not None:
+            x,y,w,h=cv2.boundingRect(final_counter)
+            if w/h>1.2 or h/w>1.2:
+                # 不是正方形
+                if len(final_counters)>=2:
+                    # 换成另一个轮廓 
+                    final_counter=final_counters[0]
+                else:
+                    final_counter=None
+        if final_counter is not None:
+            print('detect contour')
             rect = cv2.minAreaRect(final_counter)
             box = cv2.boxPoints(rect)
             box = np.int0(box)
-            cv2.putText(img_mini,f'{len(final_counters)}',box[0],cv2.FONT_HERSHEY_SIMPLEX,1,(0,0,255),2)
-            cv2.drawContours(img_mini,[box], -1, (0, 0, 255), 2)
-            for point in box:
-                point[0] += xmin
-                point[1] += ymin
-            #print(box)
+            
+            
             #cv2.drawContours(img_mini,[box],0,(0,0,255),2)
             # final_counter的坐标是相对于img_mini的
             # 需要转换为相对于img的坐标
             # final_counter的xim,ymin,xmax,ymax四个点对应图像四角
             #print(f"contours:{len(final_counters)}")
-            
+            if isoutside:
+                # yolo检测到的是外轮廓
+                yolo_area=width*height
+                cv_area=cv2.contourArea(final_counter)
+                if cv_area/yolo_area>0.5:
+                    # 都是外轮廓
+                    isoutside=True
+                    box=cv2.approxPolyDP(final_counter,0.02*cv2.arcLength(final_counter,True),True)
+                    box=box[:,0,:]
+                    box = np.int0(box)
+                    #print(box[0,:])
+                else:
+                    # box是内轮廓
+                    isoutside=False
+            print('mini box:',box)
+            cv2.putText(img_mini,f'{len(final_counters)}',box[0,:],cv2.FONT_HERSHEY_SIMPLEX,1,(0,0,255),2)
+            cv2.drawContours(img_mini,[box], -1, (0, 0, 255), 2)
+            for point in box:
+                point[0] += xmin
+                point[1] += ymin
+            print('large box:',box)
             if img_mini.shape[0]>10 and img_mini.shape[1]>10:
                 cv2.imshow('mini',img_mini)
                 cv2.imshow('binary',binary)
+            
             cv2.drawContours(self.img_with_rect, [box], 0, (0, 0, 255), 2)
             #cv2.imshow('img_with_rect',self.img_with_rect)
-            return True,box
+            return True,box,isoutside
         else:
-            return False,rect
+            return False,rect,isoutside
     @timer
     def workonce(self):
         "进行一轮工作"
@@ -201,8 +238,9 @@ class Worker():
                     isoutside=True
                 else:
                     isoutside=False
-                
-                contour_ret,rect=self.find_contour(rect,isoutside)
+                print(f"yolo_isoutside:{isoutside}")
+                contour_ret,rect,isoutside=self.find_contour(rect,isoutside)
+                print(f"cv_isoutside:{isoutside}")
                 solver=Solve_position(rect,isoutside)
                 # 仅在调整h时使用self.h.pop()
                 # return solver.get_location(contour_ret,self.h.pop()),cv2.flip(self.img_with_rect,-1)      
