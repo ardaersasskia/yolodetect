@@ -37,7 +37,7 @@ if __name__ == '__main__':
                 delta_y=compute_y-true_y
                 delta_z=compute_z-true_z               
                 f.write(f'{true_x},{compute_x},{true_y},{compute_y},{true_z},{compute_z},{delta_x},{delta_y},{delta_z}\n')
-        k=cv2.waitKey(1)
+        k=cv2.waitKey(0)
         if k == 27:
             cv2.destroyAllWindows()
             break

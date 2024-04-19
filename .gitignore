@@ -2,4 +2,5 @@ runs/train
 dataset
 __pycache__
 .vscode
+*.mp4
 ~$*

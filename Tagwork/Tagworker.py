@@ -12,7 +12,7 @@ def timer(func):
         return result
     return wrapper
 class Worker():
-    def __init__(self,model,using_csi=False,using_v4l2=True,imgHeight=720,imgWidth=1280,cap=None,testflag=False,testdirectory=None,h=[]) -> None:
+    def __init__(self,model,using_csi=False,using_v4l2=True,imgHeight=2160,imgWidth=3840,cap=None,testflag=False,testdirectory=None,h=[]) -> None:
         self.cap=cap
         self.model=model
         self.testflag=testflag
@@ -20,6 +20,7 @@ class Worker():
         self.testpositions=[]
         self.testposition=None
         self.img=None
+        self.img_ori=None
         self.images=[]
         self.img_with_rect=None
         self.detections_yolo=None
@@ -27,6 +28,9 @@ class Worker():
         self.using_v4l2=using_v4l2
         self.imgWidth=imgWidth
         self.imgHeight=imgHeight
+        self.history_positions=[]
+        self.no_detect_countour=0
+        self.next_position={'xmin':0,'ymin':0,'xmax':self.imgWidth,'ymax':self.imgHeight}
         if self.testflag:
             self.file_read(testdirectory)
             self.h=h
@@ -88,13 +92,18 @@ class Worker():
         detect_list = []
         for detection in self.detections_yolo:
             xmin, ymin, xmax, ymax, conf, classItem = detection[:6]
-            if conf > 0.3:
+            if conf > 0.45:
                 detect_list.append([int(xmin), int(ymin), int(xmax), int(ymax), conf,classItem])
-                cv2.rectangle(self.img_with_rect, (int(xmin), int(ymin)), (int(xmax), int(ymax)), (255,0,0), 3,)
-                cv2.putText(self.img_with_rect,f'{classItem}:{conf}',[int(xmin), int(ymin)],cv2.FONT_HERSHEY_SIMPLEX,1,(255,0,0),2)
+                #cv2.rectangle(self.img_with_rect, (int(xmin), int(ymin)), (int(xmax), int(ymax)), (255,0,0), 3,)
+                #cv2.putText(self.img_with_rect,f'{classItem}:{conf}',[int(xmin), int(ymin)],cv2.FONT_HERSHEY_SIMPLEX,1,(255,0,0),2)
 
         if len(detect_list) > 0:
-            FirstItem = detect_list[0]
+            for detection in detect_list:
+                xmin, ymin, xmax, ymax, conf, classItem = detection
+                if classItem == 0:
+                    FirstItem = detection
+            else:
+                FirstItem = detect_list[0]
             cv2.rectangle(self.img_with_rect, (FirstItem[0], FirstItem[1]), (FirstItem[2], FirstItem[3]), (50, 255, 50), 3,
                         lineType=cv2.LINE_AA)
             rect = np.array([[FirstItem[0], FirstItem[1]], [FirstItem[2], FirstItem[1]],
@@ -126,8 +135,8 @@ class Worker():
             xmax=self.imgWidth
         if ymax>self.imgHeight:
             ymax=self.imgHeight
-        img_mini=self.img[ymin:ymax,xmin:xmax]
         
+        img_mini=self.img[ymin:ymax,xmin:xmax]
         # # 进行高斯模糊
         blured = cv2.GaussianBlur(img_mini, (3, 3), 0)
         gray = cv2.cvtColor(blured, cv2.COLOR_BGR2GRAY)
@@ -135,7 +144,7 @@ class Worker():
         # 自适应二值化
         blocksize = np.round((xmax - xmin) / 4).astype(int)
         blocksize = blocksize if blocksize % 2 == 1 else blocksize + 1
-        C = 1
+        C = 2
         binary = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV, blocksize, C)
         #_, binary = cv2.threshold(gray, 80, 255, cv2.THRESH_BINARY_INV)
         
@@ -150,7 +159,7 @@ class Worker():
             # y=1表示同一层次上一个轮廓编号
             # y=2表示它的第一个子轮廓编号
             # y=3表示它的父轮廓编号
-            if len(contour)>50 and hierarchy[0][i][3]==-1:
+            if len(contour)>30 and hierarchy[0][i][3]==-1:
                 M = cv2.moments(contour)
                 cX = int(M["m10"] / M["m00"])
                 cY = int(M["m01"] / M["m00"])
@@ -200,13 +209,13 @@ class Worker():
                 else:
                     # box是内轮廓
                     isoutside=False
-            print('mini box:',box)
+            # print('mini box:',box)
             cv2.putText(img_mini,f'{len(final_counters)}',box[0,:],cv2.FONT_HERSHEY_SIMPLEX,1,(0,0,255),2)
             cv2.drawContours(img_mini,[box], -1, (0, 0, 255), 2)
             for point in box:
                 point[0] += xmin
                 point[1] += ymin
-            print('large box:',box)
+            # print('large box:',box)
             if img_mini.shape[0]>10 and img_mini.shape[1]>10:
                 cv2.imshow('mini',img_mini)
                 cv2.imshow('binary',binary)
@@ -216,22 +225,66 @@ class Worker():
             return True,box,isoutside
         else:
             return False,rect,isoutside
+    def predict_next(self,last_rect):
+        "预测下一个位置"
+        search_range=10
+        # 默认范围为整个图像
+        next_position={'xmin':0,'ymin':0,'xmax':self.imgWidth,'ymax':self.imgHeight}
+        print(f"last_rect:{last_rect}")
+        # 计算当前轮廓中心点
+        xmin = min(point[0] for point in last_rect)
+        ymin = min(point[1] for point in last_rect)
+        xmax = max(point[0] for point in last_rect)
+        ymax = max(point[1] for point in last_rect)
+        width=xmax-xmin
+        height=ymax-ymin
+        if width*search_range<640:
+            search_range=640/width
+        if height*search_range<640:
+            search_range=640/height
+        center=(int((xmin+xmax)/2),int((ymin+ymax)/2))
+        self.history_positions.append(center)
+        print('xmin:',xmin,'ymin:',ymin,'xmax:',xmax,'ymax:',ymax)
+        # 计算下一个位置
+        next_position['xmin']=int(center[0]-width*search_range/2)
+        next_position['ymin']=int(center[1]-height*search_range/2)
+        next_position['xmax']=int(center[0]+width*search_range/2)
+        next_position['ymax']=int(center[1]+height*search_range/2)
+        if next_position['xmin']<0:
+            next_position['xmin']=0
+        if next_position['ymin']<0:
+            next_position['ymin']=0
+        if next_position['xmax']>self.imgWidth:
+            next_position['xmax']=self.imgWidth
+        if next_position['ymax']>self.imgHeight:
+            next_position['ymax']=self.imgHeight
+        print(f"next_position:{next_position}")
+        # 返回下一个位置
+        return next_position
     @timer
     def workonce(self):
         "进行一轮工作"
+        # 获取图像
         if self.testflag:
-            self.img,self.testposition=self.file_pop()
-            if self.img is None:
+            self.img_ori,self.testposition=self.file_pop()
+            if self.img_ori is None:
                 return None,self.img_with_rect
-            self.img_with_rect=self.img.copy()
+            
             print(f"testposition:{self.testposition}")
         else:
-            self.img=self.camera_cap()
-            self.img_with_rect=self.img.copy()
+            self.img_ori=self.camera_cap()
+        self.img=self.img_ori.copy()
+        self.img=self.img[self.next_position['ymin']:self.next_position['ymax'],self.next_position['xmin']:self.next_position['xmax']]
+        self.img_with_rect=self.img.copy()
+        print(self.img.shape)
+        # yolo识别与轮廓识别
         self.detections_yolo=self.yolo_detect()
+        # 轮廓识别
         if self.detections_yolo is not None: 
             rect,classItem = self.draw_rect()
+            #print(rect)
             if rect is not None:
+                self.no_detect_countour=0
                 #print("detection")
                 #print(rect)
                 if classItem==0:
@@ -241,9 +294,18 @@ class Worker():
                 print(f"yolo_isoutside:{isoutside}")
                 contour_ret,rect,isoutside=self.find_contour(rect,isoutside)
                 print(f"cv_isoutside:{isoutside}")
+                # 解算位置
+                for point in rect:
+                    point[0] += self.next_position['xmin']
+                    point[1] += self.next_position['ymin']
                 solver=Solve_position(rect,isoutside)
                 # 仅在调整h时使用self.h.pop()
-                # return solver.get_location(contour_ret,self.h.pop()),cv2.flip(self.img_with_rect,-1)      
-                return solver.get_location(contour_ret),self.img_with_rect               
+                # return solver.get_location(contour_ret,self.h.pop()),cv2.flip(self.img_with_rect,-1)    
+                self.next_position=self.predict_next(rect)  
+                return solver.get_location(contour_ret),self.img_with_rect   
+            else:
+                self.no_detect_countour=self.no_detect_countour+1
+                if self.no_detect_countour>15:
+                    self.next_position={'xmin':0,'ymin':0,'xmax':self.imgWidth,'ymax':self.imgHeight}
         return None,self.img_with_rect
         
