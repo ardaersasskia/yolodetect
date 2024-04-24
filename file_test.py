@@ -17,7 +17,7 @@ if __name__ == '__main__':
     while True:
         # 进行一帧运算
         result,img=myworker.workonce()
-        if result is None:
+        if result is None and img is None:
             cv2.destroyAllWindows()
             break
         img = cv2.resize(img, (int(myworker.imgWidth/4),int(myworker.imgHeight/4)))

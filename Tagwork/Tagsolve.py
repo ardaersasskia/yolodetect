@@ -77,12 +77,12 @@ class Solve_position:
         
         if self.isoutside:
             if counter_ret:
-                #h = 0.0543*math.log(area) + 1.7706
                 h = 2.05
+                #h = 2.05
             else:
                 h=2.5
         else:
-            #h= -2e-07*area*area - 0.0001*area + 0.7962
+            
             h = 0.8
 
         with open('log.csv','a') as f:

@@ -92,10 +92,10 @@ class Worker():
         detect_list = []
         for detection in self.detections_yolo:
             xmin, ymin, xmax, ymax, conf, classItem = detection[:6]
-            if conf > 0.45:
+            if conf > 0.3:
                 detect_list.append([int(xmin), int(ymin), int(xmax), int(ymax), conf,classItem])
-                #cv2.rectangle(self.img_with_rect, (int(xmin), int(ymin)), (int(xmax), int(ymax)), (255,0,0), 3,)
-                #cv2.putText(self.img_with_rect,f'{classItem}:{conf}',[int(xmin), int(ymin)],cv2.FONT_HERSHEY_SIMPLEX,1,(255,0,0),2)
+                cv2.rectangle(self.img_with_rect, (int(xmin), int(ymin)), (int(xmax), int(ymax)), (255,0,0), 3,)
+                cv2.putText(self.img_with_rect,f'{classItem}:{conf}',[int(xmin), int(ymin)],cv2.FONT_HERSHEY_SIMPLEX,1,(255,0,0),2)
 
         if len(detect_list) > 0:
             for detection in detect_list:
@@ -166,7 +166,7 @@ class Worker():
                 if cX<width*(0.5+centerrange) and cX>width*(0.5-centerrange) and cY<height*(0.5+centerrange) and cY>height*(0.5-centerrange):
                     # 中心点在轮廓内
                     final_counters.append(contour)
-                    #cv2.drawContours(img_mini, [contour], 0, (0, 255, 0), 2)
+                    cv2.drawContours(img_mini, [contour], 0, (0, 255, 0), 2)
             if len(final_counters)>=2:
                 # 检测到两个轮廓的情况下，选择外轮廓
                 final_counter=final_counters[1]
@@ -268,13 +268,13 @@ class Worker():
         if self.testflag:
             self.img_ori,self.testposition=self.file_pop()
             if self.img_ori is None:
-                return None,self.img_with_rect
+                return None,None
             
             print(f"testposition:{self.testposition}")
         else:
             self.img_ori=self.camera_cap()
         self.img=self.img_ori.copy()
-        self.img=self.img[self.next_position['ymin']:self.next_position['ymax'],self.next_position['xmin']:self.next_position['xmax']]
+        #self.img=self.img[self.next_position['ymin']:self.next_position['ymax'],self.next_position['xmin']:self.next_position['xmax']]
         self.img_with_rect=self.img.copy()
         print(self.img.shape)
         # yolo识别与轮廓识别
@@ -295,9 +295,9 @@ class Worker():
                 contour_ret,rect,isoutside=self.find_contour(rect,isoutside)
                 print(f"cv_isoutside:{isoutside}")
                 # 解算位置
-                for point in rect:
-                    point[0] += self.next_position['xmin']
-                    point[1] += self.next_position['ymin']
+                # for point in rect:
+                #     point[0] += self.next_position['xmin']
+                #     point[1] += self.next_position['ymin']
                 solver=Solve_position(rect,isoutside)
                 # 仅在调整h时使用self.h.pop()
                 # return solver.get_location(contour_ret,self.h.pop()),cv2.flip(self.img_with_rect,-1)    
